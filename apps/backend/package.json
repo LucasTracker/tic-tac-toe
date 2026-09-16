@@ -12,7 +12,7 @@
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "@tic-tac-toe/shared": "workspace:*",
-    "fastify": "^4.28.1"
+    "fastify": "^5.12.1"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
