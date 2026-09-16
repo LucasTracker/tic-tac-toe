@@ -1,0 +1,11 @@
+{
+  "name": "tic-tac-toe",
+  "private": true,
+  "packageManager": "pnpm@9.7.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm --recursive --filter \"./apps/*\" build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint"
+  }
+}
