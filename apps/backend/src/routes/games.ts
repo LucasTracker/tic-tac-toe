@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import type { Player } from '@tic-tac-toe/shared'
+import type { Move } from '@tic-tac-toe/shared'
 import { createGame, getGame, saveGame } from '../game/state'
 import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
 
@@ -15,8 +15,20 @@ export async function gamesRoutes(app: FastifyInstance) {
     return game
   })
 
-  app.post<{ Params: { id: string }; Body: { position: number; player: Player } }>(
+  app.post<{ Params: { id: string }; Body: Move }>(
     '/games/:id/moves',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['position', 'player'],
+          properties: {
+            position: { type: 'integer', minimum: 0, maximum: 8 },
+            player: { type: 'string', enum: ['X', 'O'] },
+          },
+        },
+      },
+    },
     async (req, reply) => {
       const game = getGame(req.params.id)
       if (!game) return reply.code(404).send({ error: 'Game not found' })

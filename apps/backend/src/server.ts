@@ -3,7 +3,10 @@ import cors from '@fastify/cors'
 import { gamesRoutes } from './routes/games'
 
 export function buildServer() {
-  const app = Fastify({ logger: true })
+  const app = Fastify({
+    logger: true,
+    ajv: { customOptions: { coerceTypes: false } },
+  })
   app.register(cors, { origin: 'http://localhost:5173' })
   app.register(gamesRoutes)
   return app

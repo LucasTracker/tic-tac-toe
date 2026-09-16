@@ -1,4 +1,4 @@
-import type { GameState, Player } from '@tic-tac-toe/shared'
+import type { GameState, Move } from '@tic-tac-toe/shared'
 
 const BASE_URL = 'http://localhost:3000'
 
@@ -12,11 +12,11 @@ export async function getGame(id: string): Promise<GameState> {
   return res.json()
 }
 
-export async function makeMove(id: string, position: number, player: Player): Promise<GameState> {
+export async function makeMove(id: string, move: Move): Promise<GameState> {
   const res = await fetch(`${BASE_URL}/games/${id}/moves`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ position, player }),
+    body: JSON.stringify(move),
   })
   if (!res.ok) {
     const body = await res.json()
