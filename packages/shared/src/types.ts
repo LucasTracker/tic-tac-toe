@@ -1,0 +1,23 @@
+export type Player = 'X' | 'O'
+export type Cell = Player | null
+export type Board = Cell[]
+
+export type GameStatus = 'in_progress' | 'won' | 'draw'
+
+export interface GameResult {
+  status: GameStatus
+  winner: Player | null
+}
+
+export interface GameState {
+  id: string
+  board: Board
+  currentPlayer: Player
+  status: GameStatus
+  winner: Player | null
+}
+
+export interface Move {
+  position: number
+  player: Player
+}
