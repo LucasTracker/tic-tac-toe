@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import type { Move } from '@tic-tac-toe/shared'
+import type { CreateGameOptions, Move } from '@tic-tac-toe/shared'
 import { createGame, getGame, getScore, recordResult, saveGame } from '../game/state'
 import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
+import { chooseBotMove } from '../game/bot'
 
 export async function gamesRoutes(app: FastifyInstance) {
-  app.post('/games', async (_req, reply) => {
-    const game = createGame()
+  app.post<{ Body?: CreateGameOptions }>('/games', async (req, reply) => {
+    const game = createGame(req.body ?? {})
     return reply.code(201).send(game)
   })
 
@@ -34,21 +35,30 @@ export async function gamesRoutes(app: FastifyInstance) {
       if (!game) return reply.code(404).send({ error: 'Game not found' })
 
       try {
-        const board = applyMove(
+        let board = applyMove(
           game.board,
           req.body.position,
           req.body.player,
           game.currentPlayer,
           game.status
         )
-        const result = evaluateBoard(board)
+        let result = evaluateBoard(board)
+        let currentPlayer = nextPlayer(game.currentPlayer)
+
+        if (game.vsBot && result.status === 'in_progress' && currentPlayer !== req.body.player) {
+          const botPosition = chooseBotMove(board, currentPlayer, game.botDifficulty ?? 'unbeatable')
+          board = applyMove(board, botPosition, currentPlayer, currentPlayer, result.status)
+          result = evaluateBoard(board)
+          currentPlayer = nextPlayer(currentPlayer)
+        }
+
         const updated = {
           ...game,
           board,
           status: result.status,
           winner: result.winner,
           winningLine: result.winningLine,
-          currentPlayer: nextPlayer(game.currentPlayer),
+          currentPlayer,
         }
         saveGame(updated)
         if (game.status === 'in_progress' && result.status !== 'in_progress') {

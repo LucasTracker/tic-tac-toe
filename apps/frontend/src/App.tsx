@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { GameState, ScoreBoard } from '@tic-tac-toe/shared'
+import type { BotDifficulty, GameState, ScoreBoard } from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
 import { createGame, getScore, makeMove } from './api/client'
 
@@ -7,6 +7,8 @@ export default function App() {
   const [game, setGame] = useState<GameState | null>(null)
   const [score, setScore] = useState<ScoreBoard | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [vsBot, setVsBot] = useState(false)
+  const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
 
   useEffect(() => {
     createGame()
@@ -34,7 +36,7 @@ export default function App() {
 
   async function handleNewGame() {
     try {
-      const created = await createGame()
+      const created = await createGame(vsBot ? { vsBot: true, botDifficulty: difficulty } : {})
       setGame(created)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start game')
@@ -52,11 +54,22 @@ export default function App() {
           X wins: {score.xWins} | O wins: {score.oWins} | Draws: {score.draws}
         </p>
       )}
+      <label>
+        <input type="checkbox" checked={vsBot} onChange={(e) => setVsBot(e.target.checked)} />
+        Play against bot
+      </label>
+      {vsBot && (
+        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as BotDifficulty)}>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="unbeatable">Unbeatable</option>
+        </select>
+      )}
       <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} />
       {game.status === 'in_progress' && <p>Turn: {game.currentPlayer}</p>}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
-      {game.status !== 'in_progress' && <button onClick={handleNewGame}>New Game</button>}
+      <button onClick={handleNewGame}>New Game</button>
     </main>
   )
 }

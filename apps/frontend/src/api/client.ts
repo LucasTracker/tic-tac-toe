@@ -1,9 +1,13 @@
-import type { GameState, Move, ScoreBoard } from '@tic-tac-toe/shared'
+import type { CreateGameOptions, GameState, Move, ScoreBoard } from '@tic-tac-toe/shared'
 
 const BASE_URL = 'http://localhost:3000'
 
-export async function createGame(): Promise<GameState> {
-  const res = await fetch(`${BASE_URL}/games`, { method: 'POST' })
+export async function createGame(options: CreateGameOptions = {}): Promise<GameState> {
+  const res = await fetch(`${BASE_URL}/games`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
   return res.json()
 }
 

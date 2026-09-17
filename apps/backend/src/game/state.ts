@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import type { GameState, ScoreBoard } from '@tic-tac-toe/shared'
+import type { CreateGameOptions, GameState, ScoreBoard } from '@tic-tac-toe/shared'
 import { createEmptyBoard } from './logic'
 
 const games = new Map<string, GameState>()
 
 const score: ScoreBoard = { xWins: 0, oWins: 0, draws: 0 }
 
-export function createGame(): GameState {
+export function createGame(options: CreateGameOptions = {}): GameState {
   const game: GameState = {
     id: randomUUID(),
     board: createEmptyBoard(),
@@ -14,6 +14,8 @@ export function createGame(): GameState {
     status: 'in_progress',
     winner: null,
     winningLine: null,
+    vsBot: options.vsBot ?? false,
+    botDifficulty: options.vsBot ? options.botDifficulty ?? 'unbeatable' : null,
   }
   games.set(game.id, game)
   return game

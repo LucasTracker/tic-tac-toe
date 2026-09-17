@@ -10,6 +10,8 @@ export interface GameResult {
   winningLine: number[] | null
 }
 
+export type BotDifficulty = 'easy' | 'medium' | 'unbeatable'
+
 export interface GameState {
   id: string
   board: Board
@@ -17,6 +19,13 @@ export interface GameState {
   status: GameStatus
   winner: Player | null
   winningLine: number[] | null
+  vsBot: boolean
+  botDifficulty: BotDifficulty | null
+}
+
+export interface CreateGameOptions {
+  vsBot?: boolean
+  botDifficulty?: BotDifficulty
 }
 
 export interface Move {
