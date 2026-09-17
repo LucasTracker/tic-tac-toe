@@ -20,18 +20,18 @@ describe('evaluateBoard', () => {
     board[a] = 'X'
     board[b] = 'X'
     board[c] = 'X'
-    expect(evaluateBoard(board)).toEqual({ status: 'won', winner: 'X' })
+    expect(evaluateBoard(board)).toEqual({ status: 'won', winner: 'X', winningLine: [a, b, c] })
   })
 
   it('detects a draw when the board is full with no winner', () => {
     const board: Board = ['X', 'O', 'X', 'X', 'O', 'O', 'O', 'X', 'X']
-    expect(evaluateBoard(board)).toEqual({ status: 'draw', winner: null })
+    expect(evaluateBoard(board)).toEqual({ status: 'draw', winner: null, winningLine: null })
   })
 
   it('reports in_progress when the board is incomplete with no winner', () => {
     const board: Board = createEmptyBoard()
     board[0] = 'X'
-    expect(evaluateBoard(board)).toEqual({ status: 'in_progress', winner: null })
+    expect(evaluateBoard(board)).toEqual({ status: 'in_progress', winner: null, winningLine: null })
   })
 })
 

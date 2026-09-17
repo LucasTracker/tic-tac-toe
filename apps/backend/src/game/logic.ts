@@ -11,15 +11,16 @@ export function createEmptyBoard(): Board {
 }
 
 export function evaluateBoard(board: Board): GameResult {
-  for (const [a, b, c] of WINNING_LINES) {
+  for (const line of WINNING_LINES) {
+    const [a, b, c] = line
     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return { status: 'won', winner: board[a] as Player }
+      return { status: 'won', winner: board[a] as Player, winningLine: line }
     }
   }
   if (board.every((cell) => cell !== null)) {
-    return { status: 'draw', winner: null }
+    return { status: 'draw', winner: null, winningLine: null }
   }
-  return { status: 'in_progress', winner: null }
+  return { status: 'in_progress', winner: null, winningLine: null }
 }
 
 export function nextPlayer(player: Player): Player {

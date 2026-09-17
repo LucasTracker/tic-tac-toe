@@ -47,6 +47,7 @@ export async function gamesRoutes(app: FastifyInstance) {
           board,
           status: result.status,
           winner: result.winner,
+          winningLine: result.winningLine,
           currentPlayer: nextPlayer(game.currentPlayer),
         }
         saveGame(updated)

@@ -52,7 +52,7 @@ export default function App() {
           X wins: {score.xWins} | O wins: {score.oWins} | Draws: {score.draws}
         </p>
       )}
-      <Board board={game.board} onCellClick={handleCellClick} />
+      <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} />
       {game.status === 'in_progress' && <p>Turn: {game.currentPlayer}</p>}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}

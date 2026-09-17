@@ -7,6 +7,7 @@ export type GameStatus = 'in_progress' | 'won' | 'draw'
 export interface GameResult {
   status: GameStatus
   winner: Player | null
+  winningLine: number[] | null
 }
 
 export interface GameState {
@@ -15,6 +16,7 @@ export interface GameState {
   currentPlayer: Player
   status: GameStatus
   winner: Player | null
+  winningLine: number[] | null
 }
 
 export interface Move {

@@ -13,6 +13,7 @@ export function createGame(): GameState {
     currentPlayer: 'X',
     status: 'in_progress',
     winner: null,
+    winningLine: null,
   }
   games.set(game.id, game)
   return game

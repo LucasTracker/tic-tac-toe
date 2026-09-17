@@ -18,3 +18,8 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+.cell-winning {
+  background-color: #a7f3d0;
+  font-weight: bold;
+}
