@@ -21,3 +21,9 @@ export interface Move {
   position: number
   player: Player
 }
+
+export interface ScoreBoard {
+  xWins: number
+  oWins: number
+  draws: number
+}

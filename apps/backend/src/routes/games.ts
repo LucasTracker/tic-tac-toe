@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { Move } from '@tic-tac-toe/shared'
-import { createGame, getGame, saveGame } from '../game/state'
+import { createGame, getGame, getScore, recordResult, saveGame } from '../game/state'
 import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
 
 export async function gamesRoutes(app: FastifyInstance) {
@@ -50,6 +50,9 @@ export async function gamesRoutes(app: FastifyInstance) {
           currentPlayer: nextPlayer(game.currentPlayer),
         }
         saveGame(updated)
+        if (game.status === 'in_progress' && result.status !== 'in_progress') {
+          recordResult(result.status, result.winner)
+        }
         return updated
       } catch (err) {
         if (err instanceof InvalidMoveError) {
@@ -59,4 +62,6 @@ export async function gamesRoutes(app: FastifyInstance) {
       }
     }
   )
+
+  app.get('/score', async () => getScore())
 }

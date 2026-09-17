@@ -1,4 +1,4 @@
-import type { GameState, Move } from '@tic-tac-toe/shared'
+import type { GameState, Move, ScoreBoard } from '@tic-tac-toe/shared'
 
 const BASE_URL = 'http://localhost:3000'
 
@@ -22,5 +22,10 @@ export async function makeMove(id: string, move: Move): Promise<GameState> {
     const body = await res.json()
     throw new Error(body.error ?? 'Move failed')
   }
+  return res.json()
+}
+
+export async function getScore(): Promise<ScoreBoard> {
+  const res = await fetch(`${BASE_URL}/score`)
   return res.json()
 }
