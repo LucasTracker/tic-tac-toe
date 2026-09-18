@@ -6,6 +6,21 @@ import { createGame, getScore, makeMove } from './api/client'
 type Theme = 'light' | 'dark'
 type GameMode = 'local' | 'bot'
 
+const difficultyInfo: Record<BotDifficulty, { label: string; description: string }> = {
+  easy: {
+    label: 'Fácil',
+    description: 'O bot escolhe uma jogada livre aleatoriamente.',
+  },
+  medium: {
+    label: 'Médio',
+    description: 'O bot combina jogadas estratégicas com escolhas aleatórias.',
+  },
+  unbeatable: {
+    label: 'Imbatível',
+    description: 'O bot analisa as possibilidades e não perde no tabuleiro 3x3.',
+  },
+}
+
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem('theme')
   if (stored === 'light' || stored === 'dark') return stored
@@ -110,22 +125,34 @@ export default function App() {
       </label>
 
       {mode === 'bot' && (
-        <label>
-          Difficulty:
-          <select value={difficulty} onChange={(e) => {
-            const nextDifficulty = e.target.value as BotDifficulty
-            setDifficulty(nextDifficulty)
-            void startNewGame('bot', size, nextDifficulty)
-          }}>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="unbeatable">Unbeatable</option>
+        <div className="bot-settings">
+          <label htmlFor="difficulty">Difficulty:</label>
+          <select
+            id="difficulty"
+            value={difficulty}
+            onChange={(e) => {
+              const nextDifficulty = e.target.value as BotDifficulty
+              setDifficulty(nextDifficulty)
+              void startNewGame('bot', size, nextDifficulty)
+            }}
+          >
+            {Object.entries(difficultyInfo).map(([value, info]) => (
+              <option key={value} value={value}>
+                {info.label}
+              </option>
+            ))}
           </select>
-        </label>
+          <p className="setting-description">{difficultyInfo[difficulty].description}</p>
+        </div>
       )}
 
       <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} />
-      {game.status === 'in_progress' && <p>Turn: {game.currentPlayer}</p>}
+      {game.status === 'in_progress' && (
+        <p>
+          Turn: {game.currentPlayer}
+          {mode === 'bot' && ` · Bot: ${difficultyInfo[difficulty].label}`}
+        </p>
+      )}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
       <button onClick={() => void startNewGame()}>New Game</button>

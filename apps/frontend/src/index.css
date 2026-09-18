@@ -71,6 +71,18 @@ main {
   font-weight: 600;
 }
 
+.bot-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.setting-description {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
 .scoreboard {
   color: var(--muted);
 }
