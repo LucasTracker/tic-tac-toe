@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { BoardSize, BotDifficulty, GameState, ScoreBoard, TimeLimitSeconds } from '@tic-tac-toe/shared'
+import type { BoardSize, BotDifficulty, GameHistoryEntry, GameState, ScoreBoard, TimeLimitSeconds } from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
-import { createGame, expireTurn, getScore, makeMove } from './api/client'
+import { createGame, expireTurn, getHistory, getScore, makeMove } from './api/client'
 
 type Theme = 'light' | 'dark'
 type GameMode = 'local' | 'bot'
@@ -44,6 +44,7 @@ function getInitialTheme(): Theme {
 export default function App() {
   const [game, setGame] = useState<GameState | null>(null)
   const [score, setScore] = useState<ScoreBoard | null>(null)
+  const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<GameMode>('local')
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
@@ -64,11 +65,18 @@ export default function App() {
   useEffect(() => {
     void startNewGame('local', size, difficulty, timeLimitSeconds)
     void refreshScore()
+    void refreshHistory()
   }, [])
 
   function refreshScore() {
     return getScore()
       .then(setScore)
+      .catch((err: Error) => setError(err.message))
+  }
+
+  function refreshHistory() {
+    return getHistory()
+      .then(setHistory)
       .catch((err: Error) => setError(err.message))
   }
 
@@ -93,6 +101,7 @@ export default function App() {
 
   function registerFinishedGame(updated: GameState) {
     void refreshScore()
+    void refreshHistory()
     if (!updated.winner) return
     const nextScore = { ...seriesScore, [updated.winner]: seriesScore[updated.winner] + 1 }
     setSeriesScore(nextScore)
@@ -165,6 +174,24 @@ export default function App() {
     setSeriesWinner(null)
     setRound(1)
     void startNewGame(mode, nextSize, difficulty)
+  }
+
+  function replayConfiguration(entry: GameHistoryEntry) {
+    const nextMode: GameMode = entry.vsBot ? 'bot' : 'local'
+    setMode(nextMode)
+    setSize(entry.size)
+    setDifficulty(entry.botDifficulty ?? 'unbeatable')
+    setTimeLimitSeconds(entry.timeLimitSeconds)
+    setSeriesScore({ X: 0, O: 0 })
+    setSeriesWinner(null)
+    setRound(1)
+    void startNewGame(nextMode, entry.size, entry.botDifficulty ?? 'unbeatable', entry.timeLimitSeconds)
+  }
+
+  function formatHistoryResult(entry: GameHistoryEntry) {
+    if (entry.endReason === 'draw') return 'Empate'
+    if (entry.endReason === 'timeout') return `${entry.timedOutPlayer} ficou sem tempo · ${entry.winner} venceu`
+    return `${entry.winner} venceu`
   }
 
   if (error) return <p>Error: {error}</p>
@@ -290,6 +317,29 @@ export default function App() {
       ) : (
         <button onClick={() => void startNewGame()}>Reiniciar rodada</button>
       )}
+
+      <section className="history" aria-labelledby="history-title">
+        <h2 id="history-title">Partidas recentes</h2>
+        {history.length === 0 ? (
+          <p className="history-empty">Nenhuma partida concluída ainda.</p>
+        ) : (
+          <ul className="history-list">
+            {history.map((entry) => (
+              <li key={entry.id} className="history-item">
+                <div>
+                  <strong>{formatHistoryResult(entry)}</strong>
+                  <span>
+                    {entry.vsBot ? `Contra bot${entry.botDifficulty ? ` · ${entry.botDifficulty}` : ''}` : 'Multijogador local'}
+                    {' · '}{entry.size}×{entry.size} · {entry.durationSeconds}s
+                    {' · '}{new Date(entry.completedAt).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <button type="button" onClick={() => replayConfiguration(entry)}>Repetir</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   )
 }

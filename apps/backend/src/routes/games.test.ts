@@ -55,6 +55,14 @@ describe('POST /games/:id/moves validation', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.json()).toMatchObject({ status: 'timeout', timedOutPlayer: 'X', winner: 'O' })
+
+    const historyRes = await app.inject({ method: 'GET', url: '/history' })
+    expect(historyRes.statusCode).toBe(200)
+    expect(historyRes.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id, endReason: 'timeout', timedOutPlayer: 'X', winner: 'O', size: 3 }),
+      ])
+    )
   })
 
   it('does not accept a move after its turn has expired', async () => {

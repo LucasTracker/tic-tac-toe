@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { CreateGameOptions, Move } from '@tic-tac-toe/shared'
-import { createGame, getGame, getScore, recordResult, saveGame } from '../game/state'
+import { createGame, getGame, getHistory, getScore, recordResult, saveGame } from '../game/state'
 import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
 import { chooseBotMove } from '../game/bot'
 
@@ -22,7 +22,7 @@ function finishForTimeout(game: NonNullable<ReturnType<typeof getGame>>) {
     winningLine: null,
   }
   saveGame(updated)
-  recordResult(updated.status, updated.winner)
+  recordResult(updated)
   return updated
 }
 
@@ -102,7 +102,7 @@ export async function gamesRoutes(app: FastifyInstance) {
         }
         saveGame(updated)
         if (game.status === 'in_progress' && result.status !== 'in_progress') {
-          recordResult(result.status, result.winner)
+          recordResult(updated)
         }
         return updated
       } catch (err) {
@@ -122,4 +122,5 @@ export async function gamesRoutes(app: FastifyInstance) {
   })
 
   app.get('/score', async () => getScore())
+  app.get('/history', async () => getHistory())
 }

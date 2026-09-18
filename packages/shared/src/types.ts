@@ -27,6 +27,8 @@ export interface GameState {
   botDifficulty: BotDifficulty | null
   /** Zero means that the game has no per-turn time limit. */
   timeLimitSeconds: TimeLimitSeconds
+  /** Unix timestamp (milliseconds) at which the game began. */
+  createdAt: number
   /** Unix timestamp (milliseconds) at which the current turn began. */
   turnStartedAt: number
   /** Player that ran out of time, when status is `timeout`. */
@@ -49,4 +51,20 @@ export interface ScoreBoard {
   xWins: number
   oWins: number
   draws: number
+}
+
+export type GameEndReason = 'won' | 'draw' | 'timeout'
+
+export interface GameHistoryEntry {
+  id: string
+  completedAt: number
+  durationSeconds: number
+  endReason: GameEndReason
+  winner: Player | null
+  timedOutPlayer: Player | null
+  board: Board
+  size: BoardSize
+  vsBot: boolean
+  botDifficulty: BotDifficulty | null
+  timeLimitSeconds: TimeLimitSeconds
 }

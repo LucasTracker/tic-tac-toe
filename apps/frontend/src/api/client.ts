@@ -1,4 +1,4 @@
-import type { CreateGameOptions, GameState, Move, ScoreBoard } from '@tic-tac-toe/shared'
+import type { CreateGameOptions, GameHistoryEntry, GameState, Move, ScoreBoard } from '@tic-tac-toe/shared'
 
 const BASE_URL = 'http://localhost:3000'
 
@@ -40,5 +40,10 @@ export async function expireTurn(id: string): Promise<GameState> {
 
 export async function getScore(): Promise<ScoreBoard> {
   const res = await fetch(`${BASE_URL}/score`)
+  return res.json()
+}
+
+export async function getHistory(): Promise<GameHistoryEntry[]> {
+  const res = await fetch(`${BASE_URL}/history`)
   return res.json()
 }
