@@ -29,6 +29,15 @@ export async function makeMove(id: string, move: Move): Promise<GameState> {
   return res.json()
 }
 
+export async function expireTurn(id: string): Promise<GameState> {
+  const res = await fetch(`${BASE_URL}/games/${id}/timeout`, { method: 'POST' })
+  if (!res.ok) {
+    const body = await res.json()
+    throw new Error(body.error ?? 'Could not expire turn')
+  }
+  return res.json()
+}
+
 export async function getScore(): Promise<ScoreBoard> {
   const res = await fetch(`${BASE_URL}/score`)
   return res.json()

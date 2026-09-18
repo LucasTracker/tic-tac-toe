@@ -96,6 +96,16 @@ main {
   color: var(--button-active-bg);
 }
 
+.turn-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 0;
+}
+
+.turn-timer-warning {
+  color: #dc2626;
+}
+
 .board {
   display: grid;
   gap: 4px;

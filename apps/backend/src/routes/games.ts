@@ -4,6 +4,28 @@ import { createGame, getGame, getScore, recordResult, saveGame } from '../game/s
 import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
 import { chooseBotMove } from '../game/bot'
 
+function timeLimitExceeded(game: ReturnType<typeof getGame>): boolean {
+  return Boolean(
+    game &&
+      game.status === 'in_progress' &&
+      game.timeLimitSeconds > 0 &&
+      Date.now() >= game.turnStartedAt + game.timeLimitSeconds * 1_000
+  )
+}
+
+function finishForTimeout(game: NonNullable<ReturnType<typeof getGame>>) {
+  const updated = {
+    ...game,
+    status: 'timeout' as const,
+    winner: nextPlayer(game.currentPlayer),
+    timedOutPlayer: game.currentPlayer,
+    winningLine: null,
+  }
+  saveGame(updated)
+  recordResult(updated.status, updated.winner)
+  return updated
+}
+
 export async function gamesRoutes(app: FastifyInstance) {
   app.post<{ Body?: CreateGameOptions }>(
     '/games',
@@ -15,6 +37,7 @@ export async function gamesRoutes(app: FastifyInstance) {
             size: { type: 'integer', enum: [3, 4, 5] },
             vsBot: { type: 'boolean' },
             botDifficulty: { type: 'string', enum: ['easy', 'medium', 'unbeatable'] },
+            timeLimitSeconds: { type: 'integer', enum: [0, 10, 30, 60] },
           },
         },
       },
@@ -48,6 +71,7 @@ export async function gamesRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const game = getGame(req.params.id)
       if (!game) return reply.code(404).send({ error: 'Game not found' })
+      if (timeLimitExceeded(game)) return finishForTimeout(game)
 
       try {
         let board = applyMove(
@@ -74,6 +98,7 @@ export async function gamesRoutes(app: FastifyInstance) {
           winner: result.winner,
           winningLine: result.winningLine,
           currentPlayer,
+          turnStartedAt: Date.now(),
         }
         saveGame(updated)
         if (game.status === 'in_progress' && result.status !== 'in_progress') {
@@ -88,6 +113,13 @@ export async function gamesRoutes(app: FastifyInstance) {
       }
     }
   )
+
+  app.post<{ Params: { id: string } }>('/games/:id/timeout', async (req, reply) => {
+    const game = getGame(req.params.id)
+    if (!game) return reply.code(404).send({ error: 'Game not found' })
+    if (!timeLimitExceeded(game)) return game
+    return finishForTimeout(game)
+  })
 
   app.get('/score', async () => getScore())
 }

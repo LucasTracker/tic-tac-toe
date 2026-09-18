@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { BoardSize, BotDifficulty, GameState, ScoreBoard } from '@tic-tac-toe/shared'
+import type { BoardSize, BotDifficulty, GameState, ScoreBoard, TimeLimitSeconds } from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
-import { createGame, getScore, makeMove } from './api/client'
+import { createGame, expireTurn, getScore, makeMove } from './api/client'
 
 type Theme = 'light' | 'dark'
 type GameMode = 'local' | 'bot'
@@ -28,6 +28,13 @@ const difficultyInfo: Record<BotDifficulty, { label: string; description: string
   },
 }
 
+const timeLimitInfo: Record<TimeLimitSeconds, string> = {
+  0: 'Sem limite',
+  10: '10 segundos',
+  30: '30 segundos',
+  60: '1 minuto',
+}
+
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem('theme')
   if (stored === 'light' || stored === 'dark') return stored
@@ -45,6 +52,8 @@ export default function App() {
   const [seriesScore, setSeriesScore] = useState({ X: 0, O: 0 })
   const [seriesWinner, setSeriesWinner] = useState<'X' | 'O' | null>(null)
   const [round, setRound] = useState(1)
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState<TimeLimitSeconds>(30)
+  const [remainingSeconds, setRemainingSeconds] = useState(30)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -53,7 +62,7 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    void startNewGame('local', size, difficulty)
+    void startNewGame('local', size, difficulty, timeLimitSeconds)
     void refreshScore()
   }, [])
 
@@ -63,10 +72,17 @@ export default function App() {
       .catch((err: Error) => setError(err.message))
   }
 
-  async function startNewGame(nextMode: GameMode = mode, nextSize: BoardSize = size, nextDifficulty: BotDifficulty = difficulty) {
+  async function startNewGame(
+    nextMode: GameMode = mode,
+    nextSize: BoardSize = size,
+    nextDifficulty: BotDifficulty = difficulty,
+    nextTimeLimit: TimeLimitSeconds = timeLimitSeconds
+  ) {
     try {
       const created = await createGame(
-        nextMode === 'bot' ? { size: nextSize, vsBot: true, botDifficulty: nextDifficulty } : { size: nextSize }
+        nextMode === 'bot'
+          ? { size: nextSize, vsBot: true, botDifficulty: nextDifficulty, timeLimitSeconds: nextTimeLimit }
+          : { size: nextSize, timeLimitSeconds: nextTimeLimit }
       )
       setGame(created)
       setError(null)
@@ -75,23 +91,47 @@ export default function App() {
     }
   }
 
+  function registerFinishedGame(updated: GameState) {
+    void refreshScore()
+    if (!updated.winner) return
+    const nextScore = { ...seriesScore, [updated.winner]: seriesScore[updated.winner] + 1 }
+    setSeriesScore(nextScore)
+    if (nextScore[updated.winner] >= seriesFormatInfo[seriesFormat].target) {
+      setSeriesWinner(updated.winner)
+    }
+  }
+
+  useEffect(() => {
+    if (!game || game.status !== 'in_progress' || game.timeLimitSeconds === 0 || seriesWinner) {
+      return
+    }
+
+    let sentTimeout = false
+    const updateClock = () => {
+      const remaining = Math.max(0, Math.ceil((game.turnStartedAt + game.timeLimitSeconds * 1_000 - Date.now()) / 1_000))
+      setRemainingSeconds(remaining)
+      if (remaining === 0 && !sentTimeout) {
+        sentTimeout = true
+        void expireTurn(game.id)
+          .then((updated) => {
+            setGame(updated)
+            if (updated.status !== 'in_progress') registerFinishedGame(updated)
+          })
+          .catch((err: Error) => setError(err.message))
+      }
+    }
+    updateClock()
+    const interval = window.setInterval(updateClock, 250)
+    return () => window.clearInterval(interval)
+  }, [game?.id, game?.status, game?.timeLimitSeconds, game?.turnStartedAt, seriesWinner])
+
   async function handleCellClick(position: number) {
     if (!game || game.status !== 'in_progress' || seriesWinner) return
     try {
       const updated = await makeMove(game.id, { position, player: game.currentPlayer })
       setGame(updated)
       if (updated.status !== 'in_progress') {
-        await refreshScore()
-        if (updated.winner) {
-          const nextScore = {
-            ...seriesScore,
-            [updated.winner]: seriesScore[updated.winner] + 1,
-          }
-          setSeriesScore(nextScore)
-          if (nextScore[updated.winner] >= seriesFormatInfo[seriesFormat].target) {
-            setSeriesWinner(updated.winner)
-          }
-        }
+        registerFinishedGame(updated)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Move failed')
@@ -179,6 +219,25 @@ export default function App() {
         </select>
       </label>
 
+      <label>
+        Tempo por jogada:
+        <select
+          value={timeLimitSeconds}
+          onChange={(e) => {
+            const nextTimeLimit = Number(e.target.value) as TimeLimitSeconds
+            setTimeLimitSeconds(nextTimeLimit)
+            setSeriesScore({ X: 0, O: 0 })
+            setSeriesWinner(null)
+            setRound(1)
+            void startNewGame(mode, size, difficulty, nextTimeLimit)
+          }}
+        >
+          {Object.entries(timeLimitInfo).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+      </label>
+
       {mode === 'bot' && (
         <div className="bot-settings">
           <label htmlFor="difficulty">Difficulty:</label>
@@ -204,15 +263,21 @@ export default function App() {
         </div>
       )}
 
-      <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} />
+      <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} disabled={game.status !== 'in_progress'} />
       {game.status === 'in_progress' && (
         <p>
           Turn: {game.currentPlayer}
           {mode === 'bot' && ` · Bot: ${difficultyInfo[difficulty].label}`}
         </p>
       )}
+      {game.status === 'in_progress' && game.timeLimitSeconds > 0 && (
+        <p className={remainingSeconds <= 5 ? 'turn-timer turn-timer-warning' : 'turn-timer'} aria-live="polite">
+          Tempo de {game.currentPlayer}: {remainingSeconds}s
+        </p>
+      )}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
+      {game.status === 'timeout' && <p>{game.timedOutPlayer} perdeu por tempo esgotado. Vencedor: {game.winner}</p>}
       {seriesWinner ? (
         <>
           <p className="series-winner" aria-live="polite">

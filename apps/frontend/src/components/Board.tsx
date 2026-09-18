@@ -4,9 +4,10 @@ interface BoardProps {
   board: BoardType
   onCellClick: (position: number) => void
   winningLine?: number[] | null
+  disabled?: boolean
 }
 
-export function Board({ board, onCellClick, winningLine }: BoardProps) {
+export function Board({ board, onCellClick, winningLine, disabled = false }: BoardProps) {
   const size = Math.sqrt(board.length)
 
   return (
@@ -22,7 +23,7 @@ export function Board({ board, onCellClick, winningLine }: BoardProps) {
             key={index}
             className={isWinning ? 'cell cell-winning' : 'cell'}
             onClick={() => onCellClick(index)}
-            disabled={cell !== null}
+            disabled={disabled || cell !== null}
           >
             {cell}
           </button>

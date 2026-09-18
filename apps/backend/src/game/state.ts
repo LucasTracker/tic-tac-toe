@@ -18,6 +18,9 @@ export function createGame(options: CreateGameOptions = {}): GameState {
     winningLine: null,
     vsBot: options.vsBot ?? false,
     botDifficulty: options.vsBot ? options.botDifficulty ?? 'unbeatable' : null,
+    timeLimitSeconds: options.timeLimitSeconds ?? 0,
+    turnStartedAt: Date.now(),
+    timedOutPlayer: null,
   }
   games.set(game.id, game)
   return game
@@ -36,7 +39,7 @@ export function getScore(): ScoreBoard {
 }
 
 export function recordResult(status: GameState['status'], winner: GameState['winner']): void {
-  if (status === 'won') {
+  if (status === 'won' || status === 'timeout') {
     if (winner === 'X') score.xWins += 1
     else if (winner === 'O') score.oWins += 1
   } else if (status === 'draw') {
