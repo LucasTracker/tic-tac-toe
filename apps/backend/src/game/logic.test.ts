@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   applyMove,
   buildWinningLines,
+  CannotUndoError,
   createEmptyBoard,
   evaluateBoard,
   InvalidMoveError,
   nextPlayer,
+  undoLastTurn,
 } from './logic'
 import type { Board, BoardSize } from '@tic-tac-toe/shared'
 
@@ -86,5 +88,68 @@ describe('applyMove', () => {
   it('rejects an out-of-bounds position on a larger board', () => {
     const board = createEmptyBoard(5)
     expect(() => applyMove(board, 25, 'X', 'X', 'in_progress')).toThrow(InvalidMoveError)
+  })
+})
+
+describe('undoLastTurn', () => {
+  it('throws when there are no moves', () => {
+    expect(() => undoLastTurn(createEmptyBoard(), [], false)).toThrow(CannotUndoError)
+  })
+
+  it('removes the last local move and restores that player turn', () => {
+    const board = createEmptyBoard()
+    board[0] = 'X'
+    board[4] = 'O'
+    const result = undoLastTurn(
+      board,
+      [
+        { position: 0, player: 'X' },
+        { position: 4, player: 'O' },
+      ],
+      false
+    )
+
+    expect(result.board[4]).toBeNull()
+    expect(result.board[0]).toBe('X')
+    expect(result.currentPlayer).toBe('O')
+    expect(result.moveHistory).toEqual([{ position: 0, player: 'X' }])
+  })
+
+  it('removes the human move and the bot reply together', () => {
+    const board = createEmptyBoard()
+    board[0] = 'X'
+    board[4] = 'O'
+    const result = undoLastTurn(
+      board,
+      [
+        { position: 0, player: 'X' },
+        { position: 4, player: 'O' },
+      ],
+      true
+    )
+
+    expect(result.board).toEqual(createEmptyBoard())
+    expect(result.currentPlayer).toBe('X')
+    expect(result.moveHistory).toEqual([])
+  })
+
+  it('removes only the human move when the bot did not reply', () => {
+    const board = createEmptyBoard()
+    board[0] = 'X'
+    board[1] = 'X'
+    board[2] = 'X'
+    const result = undoLastTurn(
+      board,
+      [
+        { position: 0, player: 'X' },
+        { position: 1, player: 'X' },
+        { position: 2, player: 'X' },
+      ],
+      true
+    )
+
+    expect(result.board[2]).toBeNull()
+    expect(result.board[0]).toBe('X')
+    expect(result.currentPlayer).toBe('X')
   })
 })

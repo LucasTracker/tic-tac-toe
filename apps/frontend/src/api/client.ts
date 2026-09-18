@@ -16,26 +16,31 @@ export async function getGame(id: string): Promise<GameState> {
   return res.json()
 }
 
-export async function makeMove(id: string, move: Move): Promise<GameState> {
-  const res = await fetch(`${BASE_URL}/games/${id}/moves`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(move),
-  })
+async function postGameAction(path: string, fallbackError: string, body?: unknown): Promise<GameState> {
+  const request: RequestInit = { method: 'POST' }
+  if (body !== undefined) {
+    request.headers = { 'Content-Type': 'application/json' }
+    request.body = JSON.stringify(body)
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, request)
   if (!res.ok) {
-    const body = await res.json()
-    throw new Error(body.error ?? 'Move failed')
+    const payload = await res.json()
+    throw new Error(payload.error ?? fallbackError)
   }
   return res.json()
 }
 
+export async function makeMove(id: string, move: Move): Promise<GameState> {
+  return postGameAction(`/games/${id}/moves`, 'Move failed', move)
+}
+
 export async function expireTurn(id: string): Promise<GameState> {
-  const res = await fetch(`${BASE_URL}/games/${id}/timeout`, { method: 'POST' })
-  if (!res.ok) {
-    const body = await res.json()
-    throw new Error(body.error ?? 'Could not expire turn')
-  }
-  return res.json()
+  return postGameAction(`/games/${id}/timeout`, 'Could not expire turn')
+}
+
+export async function undoMove(id: string): Promise<GameState> {
+  return postGameAction(`/games/${id}/undo`, 'Could not undo move')
 }
 
 export async function getScore(): Promise<ScoreBoard> {

@@ -52,6 +52,7 @@ export function createGame(options: CreateGameOptions = {}): GameState {
     createdAt: Date.now(),
     turnStartedAt: Date.now(),
     timedOutPlayer: null,
+    moveHistory: [],
   }
   games.set(game.id, game)
   return game
@@ -98,5 +99,20 @@ export function recordResult(game: GameState): void {
     },
     ...history,
   ].slice(0, 50)
+  persistResults()
+}
+
+export function unrecordResult(gameId: string): void {
+  const entry = history.find((item) => item.id === gameId)
+  if (!entry) return
+
+  if (entry.endReason === 'won' || entry.endReason === 'timeout') {
+    if (entry.winner === 'X') score.xWins = Math.max(0, score.xWins - 1)
+    else if (entry.winner === 'O') score.oWins = Math.max(0, score.oWins - 1)
+  } else if (entry.endReason === 'draw') {
+    score.draws = Math.max(0, score.draws - 1)
+  }
+
+  history = history.filter((item) => item.id !== gameId)
   persistResults()
 }

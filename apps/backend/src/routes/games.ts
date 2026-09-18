@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { CreateGameOptions, Move } from '@tic-tac-toe/shared'
-import { createGame, getGame, getHistory, getScore, recordResult, saveGame } from '../game/state'
-import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/logic'
+import { createGame, getGame, getHistory, getScore, recordResult, saveGame, unrecordResult } from '../game/state'
+import { applyMove, CannotUndoError, evaluateBoard, InvalidMoveError, nextPlayer, undoLastTurn } from '../game/logic'
 import { chooseBotMove } from '../game/bot'
 
 function timeLimitExceeded(game: ReturnType<typeof getGame>): boolean {
@@ -81,12 +81,14 @@ export async function gamesRoutes(app: FastifyInstance) {
           game.currentPlayer,
           game.status
         )
+        let moveHistory = [...game.moveHistory, { position: req.body.position, player: req.body.player }]
         let result = evaluateBoard(board)
         let currentPlayer = nextPlayer(game.currentPlayer)
 
         if (game.vsBot && result.status === 'in_progress' && currentPlayer !== req.body.player) {
           const botPosition = chooseBotMove(board, currentPlayer, game.botDifficulty ?? 'unbeatable')
           board = applyMove(board, botPosition, currentPlayer, currentPlayer, result.status)
+          moveHistory = [...moveHistory, { position: botPosition, player: currentPlayer }]
           result = evaluateBoard(board)
           currentPlayer = nextPlayer(currentPlayer)
         }
@@ -94,6 +96,7 @@ export async function gamesRoutes(app: FastifyInstance) {
         const updated = {
           ...game,
           board,
+          moveHistory,
           status: result.status,
           winner: result.winner,
           winningLine: result.winningLine,
@@ -119,6 +122,36 @@ export async function gamesRoutes(app: FastifyInstance) {
     if (!game) return reply.code(404).send({ error: 'Game not found' })
     if (!timeLimitExceeded(game)) return game
     return finishForTimeout(game)
+  })
+
+  app.post<{ Params: { id: string } }>('/games/:id/undo', async (req, reply) => {
+    const game = getGame(req.params.id)
+    if (!game) return reply.code(404).send({ error: 'Game not found' })
+    if (game.status === 'timeout') {
+      return reply.code(409).send({ error: 'Cannot undo a timed-out game' })
+    }
+
+    try {
+      const undone = undoLastTurn(game.board, game.moveHistory, game.vsBot)
+      const result = evaluateBoard(undone.board)
+      const updated = {
+        ...game,
+        ...undone,
+        status: result.status,
+        winner: result.winner,
+        winningLine: result.winningLine,
+        timedOutPlayer: null,
+        turnStartedAt: Date.now(),
+      }
+      saveGame(updated)
+      if (game.status !== 'in_progress') unrecordResult(game.id)
+      return updated
+    } catch (err) {
+      if (err instanceof CannotUndoError) {
+        return reply.code(409).send({ error: err.message })
+      }
+      throw err
+    }
   })
 
   app.get('/score', async () => getScore())

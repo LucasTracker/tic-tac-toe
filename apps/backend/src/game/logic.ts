@@ -1,4 +1,4 @@
-import type { Board, BoardSize, GameResult, GameStatus, Player } from '@tic-tac-toe/shared'
+import type { Board, BoardSize, GameResult, GameStatus, Move, Player } from '@tic-tac-toe/shared'
 
 export function createEmptyBoard(size: BoardSize = 3): Board {
   return Array(size * size).fill(null)
@@ -42,6 +42,35 @@ export function nextPlayer(player: Player): Player {
 }
 
 export class InvalidMoveError extends Error {}
+export class CannotUndoError extends Error {}
+
+const HUMAN_PLAYER: Player = 'X'
+
+export function undoLastTurn(
+  board: Board,
+  moveHistory: Move[],
+  vsBot: boolean
+): { board: Board; moveHistory: Move[]; currentPlayer: Player } {
+  const nextBoard = [...board]
+  const nextHistory = [...moveHistory]
+  const lastMove = nextHistory.pop()
+  if (!lastMove) {
+    throw new CannotUndoError('No moves to undo')
+  }
+
+  nextBoard[lastMove.position] = null
+
+  if (vsBot && lastMove.player !== HUMAN_PLAYER) {
+    const humanMove = nextHistory.pop()
+    if (humanMove) nextBoard[humanMove.position] = null
+  }
+
+  return {
+    board: nextBoard,
+    moveHistory: nextHistory,
+    currentPlayer: vsBot ? HUMAN_PLAYER : lastMove.player,
+  }
+}
 
 export function applyMove(
   board: Board,

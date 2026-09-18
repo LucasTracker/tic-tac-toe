@@ -15,6 +15,11 @@ export type BotDifficulty = 'easy' | 'medium' | 'unbeatable'
 export type BoardSize = 3 | 4 | 5
 export type TimeLimitSeconds = 0 | 10 | 30 | 60
 
+export interface Move {
+  position: number
+  player: Player
+}
+
 export interface GameState {
   id: string
   board: Board
@@ -33,6 +38,8 @@ export interface GameState {
   turnStartedAt: number
   /** Player that ran out of time, when status is `timeout`. */
   timedOutPlayer: Player | null
+  /** Moves in play order, used to undo the last turn. */
+  moveHistory: Move[]
 }
 
 export interface CreateGameOptions {
@@ -40,11 +47,6 @@ export interface CreateGameOptions {
   vsBot?: boolean
   botDifficulty?: BotDifficulty
   timeLimitSeconds?: TimeLimitSeconds
-}
-
-export interface Move {
-  position: number
-  player: Player
 }
 
 export interface ScoreBoard {

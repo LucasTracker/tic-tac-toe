@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { BoardSize, BotDifficulty, GameHistoryEntry, GameState, ScoreBoard, TimeLimitSeconds } from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
-import { createGame, expireTurn, getHistory, getScore, makeMove } from './api/client'
+import { createGame, expireTurn, getHistory, getScore, makeMove, undoMove } from './api/client'
 
 type Theme = 'light' | 'dark'
 type GameMode = 'local' | 'bot'
@@ -39,6 +39,14 @@ function getInitialTheme(): Theme {
   const stored = localStorage.getItem('theme')
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function canUndoMove(game: GameState): boolean {
+  return game.moveHistory.length > 0 && game.status !== 'timeout'
+}
+
+function isUndoShortcut(event: KeyboardEvent): boolean {
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey
 }
 
 export default function App() {
@@ -110,6 +118,18 @@ export default function App() {
     }
   }
 
+  function unregisterFinishedGame(previous: GameState): void {
+    void refreshScore()
+    void refreshHistory()
+    if (!previous.winner) return
+    const winner = previous.winner
+    setSeriesScore((current) => ({
+      ...current,
+      [winner]: Math.max(0, current[winner] - 1),
+    }))
+    setSeriesWinner(null)
+  }
+
   useEffect(() => {
     if (!game || game.status !== 'in_progress' || game.timeLimitSeconds === 0 || seriesWinner) {
       return
@@ -146,6 +166,34 @@ export default function App() {
       setError(err instanceof Error ? err.message : 'Move failed')
     }
   }
+
+  async function handleUndo() {
+    if (!game || !canUndoMove(game)) return
+    const previous = game
+    try {
+      const updated = await undoMove(game.id)
+      setGame(updated)
+      setError(null)
+      if (previous.status !== 'in_progress' && updated.status === 'in_progress') {
+        unregisterFinishedGame(previous)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Undo failed')
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!isUndoShortcut(event)) return
+      if (event.target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) {
+        return
+      }
+      event.preventDefault()
+      void handleUndo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [game])
 
   function resetSeries(nextFormat: SeriesFormat = seriesFormat) {
     setSeriesFormat(nextFormat)
@@ -290,7 +338,12 @@ export default function App() {
         </div>
       )}
 
-      <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} disabled={game.status !== 'in_progress'} />
+      <Board
+        board={game.board}
+        onCellClick={handleCellClick}
+        winningLine={game.winningLine}
+        disabled={game.status !== 'in_progress' || Boolean(seriesWinner)}
+      />
       {game.status === 'in_progress' && (
         <p>
           Turn: {game.currentPlayer}
@@ -305,18 +358,28 @@ export default function App() {
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
       {game.status === 'timeout' && <p>{game.timedOutPlayer} perdeu por tempo esgotado. Vencedor: {game.winner}</p>}
-      {seriesWinner ? (
-        <>
-          <p className="series-winner" aria-live="polite">
-            {seriesWinner} venceu a série!
-          </p>
-          <button onClick={() => resetSeries()}>Nova série</button>
-        </>
-      ) : game.status !== 'in_progress' ? (
-        <button onClick={startNextRound}>Próxima rodada</button>
-      ) : (
-        <button onClick={() => void startNewGame()}>Reiniciar rodada</button>
+      {seriesWinner && (
+        <p className="series-winner" aria-live="polite">
+          {seriesWinner} venceu a série!
+        </p>
       )}
+      <div className="actions">
+        <button
+          type="button"
+          onClick={() => void handleUndo()}
+          disabled={!canUndoMove(game)}
+          title={mode === 'bot' ? 'Desfaz a sua jogada e a resposta do bot' : 'Desfaz a última jogada'}
+        >
+          Desfazer
+        </button>
+        {seriesWinner ? (
+          <button type="button" onClick={() => resetSeries()}>Nova série</button>
+        ) : game.status !== 'in_progress' ? (
+          <button type="button" onClick={startNextRound}>Próxima rodada</button>
+        ) : (
+          <button type="button" onClick={() => void startNewGame()}>Reiniciar rodada</button>
+        )}
+      </div>
 
       <section className="history" aria-labelledby="history-title">
         <h2 id="history-title">Partidas recentes</h2>
