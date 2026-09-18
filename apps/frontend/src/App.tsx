@@ -3,6 +3,14 @@ import type { BoardSize, BotDifficulty, GameState, ScoreBoard } from '@tic-tac-t
 import { Board } from './components/Board'
 import { createGame, getScore, makeMove } from './api/client'
 
+type Theme = 'light' | 'dark'
+
+function getInitialTheme(): Theme {
+  const stored = localStorage.getItem('theme')
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 export default function App() {
   const [game, setGame] = useState<GameState | null>(null)
   const [score, setScore] = useState<ScoreBoard | null>(null)
@@ -10,6 +18,12 @@ export default function App() {
   const [vsBot, setVsBot] = useState(false)
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
   const [size, setSize] = useState<BoardSize>(3)
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   useEffect(() => {
     createGame({ size })
@@ -49,6 +63,13 @@ export default function App() {
 
   return (
     <main>
+      <button
+        className="theme-toggle"
+        onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        aria-label="Toggle theme"
+      >
+        {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+      </button>
       <h1>Tic-Tac-Toe</h1>
       {score && (
         <p className="scoreboard">

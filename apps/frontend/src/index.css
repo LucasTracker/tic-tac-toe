@@ -1,8 +1,51 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --cell-bg: #f4f4f5;
+  --cell-border: #d4d4d8;
+  --cell-winning-bg: #a7f3d0;
+  --muted: #6b7280;
+}
+
+:root[data-theme='dark'] {
+  --bg: #18181b;
+  --fg: #f4f4f5;
+  --cell-bg: #27272a;
+  --cell-border: #3f3f46;
+  --cell-winning-bg: #047857;
+  --muted: #a1a1aa;
+}
+
 body {
   font-family: system-ui, sans-serif;
   display: flex;
   justify-content: center;
   padding: 2rem;
+  background-color: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  margin: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.theme-toggle {
+  align-self: flex-end;
+  background: none;
+  border: 1px solid var(--cell-border);
+  border-radius: 6px;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+}
+
+.scoreboard {
+  color: var(--muted);
 }
 
 .board {
@@ -15,9 +58,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: var(--cell-bg);
+  border: 1px solid var(--cell-border);
+  color: var(--fg);
 }
 
 .cell-winning {
-  background-color: #a7f3d0;
+  background-color: var(--cell-winning-bg);
   font-weight: bold;
 }
