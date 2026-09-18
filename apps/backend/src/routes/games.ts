@@ -5,10 +5,25 @@ import { applyMove, evaluateBoard, InvalidMoveError, nextPlayer } from '../game/
 import { chooseBotMove } from '../game/bot'
 
 export async function gamesRoutes(app: FastifyInstance) {
-  app.post<{ Body?: CreateGameOptions }>('/games', async (req, reply) => {
-    const game = createGame(req.body ?? {})
-    return reply.code(201).send(game)
-  })
+  app.post<{ Body?: CreateGameOptions }>(
+    '/games',
+    {
+      schema: {
+        body: {
+          type: ['object', 'null'],
+          properties: {
+            size: { type: 'integer', enum: [3, 4, 5] },
+            vsBot: { type: 'boolean' },
+            botDifficulty: { type: 'string', enum: ['easy', 'medium', 'unbeatable'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const game = createGame(req.body ?? {})
+      return reply.code(201).send(game)
+    }
+  )
 
   app.get<{ Params: { id: string } }>('/games/:id', async (req, reply) => {
     const game = getGame(req.params.id)
@@ -24,7 +39,7 @@ export async function gamesRoutes(app: FastifyInstance) {
           type: 'object',
           required: ['position', 'player'],
           properties: {
-            position: { type: 'integer', minimum: 0, maximum: 8 },
+            position: { type: 'integer', minimum: 0, maximum: 24 },
             player: { type: 'string', enum: ['X', 'O'] },
           },
         },

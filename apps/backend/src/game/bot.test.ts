@@ -42,4 +42,10 @@ describe('chooseBotMove', () => {
     const position = chooseBotMove(board, 'O', 'easy')
     expect(board[position]).toBeNull()
   })
+
+  it('returns a valid position on a 4x4 board', () => {
+    const board = createEmptyBoard(4)
+    const position = chooseBotMove(board, 'O', 'unbeatable')
+    expect(board[position]).toBeNull()
+  })
 })

@@ -7,8 +7,6 @@ body {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 4rem);
-  grid-template-rows: repeat(3, 4rem);
   gap: 4px;
 }
 

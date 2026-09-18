@@ -7,9 +7,11 @@ const games = new Map<string, GameState>()
 const score: ScoreBoard = { xWins: 0, oWins: 0, draws: 0 }
 
 export function createGame(options: CreateGameOptions = {}): GameState {
+  const size = options.size ?? 3
   const game: GameState = {
     id: randomUUID(),
-    board: createEmptyBoard(),
+    board: createEmptyBoard(size),
+    size,
     currentPlayer: 'X',
     status: 'in_progress',
     winner: null,

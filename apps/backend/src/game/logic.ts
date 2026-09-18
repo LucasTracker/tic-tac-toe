@@ -1,20 +1,34 @@
-import type { Board, GameResult, GameStatus, Player } from '@tic-tac-toe/shared'
+import type { Board, BoardSize, GameResult, GameStatus, Player } from '@tic-tac-toe/shared'
 
-const WINNING_LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
-]
+export function createEmptyBoard(size: BoardSize = 3): Board {
+  return Array(size * size).fill(null)
+}
 
-export function createEmptyBoard(): Board {
-  return Array(9).fill(null)
+export function buildWinningLines(size: BoardSize): number[][] {
+  const lines: number[][] = []
+
+  for (let row = 0; row < size; row++) {
+    lines.push(Array.from({ length: size }, (_, col) => row * size + col))
+  }
+  for (let col = 0; col < size; col++) {
+    lines.push(Array.from({ length: size }, (_, row) => row * size + col))
+  }
+  lines.push(Array.from({ length: size }, (_, i) => i * size + i))
+  lines.push(Array.from({ length: size }, (_, i) => i * size + (size - 1 - i)))
+
+  return lines
+}
+
+export function boardSize(board: Board): BoardSize {
+  return Math.sqrt(board.length) as BoardSize
 }
 
 export function evaluateBoard(board: Board): GameResult {
-  for (const line of WINNING_LINES) {
-    const [a, b, c] = line
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return { status: 'won', winner: board[a] as Player, winningLine: line }
+  const lines = buildWinningLines(boardSize(board))
+  for (const line of lines) {
+    const first = board[line[0]]
+    if (first && line.every((index) => board[index] === first)) {
+      return { status: 'won', winner: first as Player, winningLine: line }
     }
   }
   if (board.every((cell) => cell !== null)) {
@@ -42,7 +56,7 @@ export function applyMove(
   if (player !== currentPlayer) {
     throw new InvalidMoveError('Not your turn')
   }
-  if (position < 0 || position > 8) {
+  if (position < 0 || position > board.length - 1) {
     throw new InvalidMoveError('Position out of bounds')
   }
   if (board[position] !== null) {

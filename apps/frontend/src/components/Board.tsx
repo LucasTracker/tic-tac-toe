@@ -7,8 +7,14 @@ interface BoardProps {
 }
 
 export function Board({ board, onCellClick, winningLine }: BoardProps) {
+  const size = Math.sqrt(board.length)
+
   return (
-    <div className="board" role="grid">
+    <div
+      className="board"
+      role="grid"
+      style={{ gridTemplateColumns: `repeat(${size}, 4rem)`, gridTemplateRows: `repeat(${size}, 4rem)` }}
+    >
       {board.map((cell, index) => {
         const isWinning = winningLine?.includes(index) ?? false
         return (

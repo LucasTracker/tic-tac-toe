@@ -12,9 +12,12 @@ export interface GameResult {
 
 export type BotDifficulty = 'easy' | 'medium' | 'unbeatable'
 
+export type BoardSize = 3 | 4 | 5
+
 export interface GameState {
   id: string
   board: Board
+  size: BoardSize
   currentPlayer: Player
   status: GameStatus
   winner: Player | null
@@ -24,6 +27,7 @@ export interface GameState {
 }
 
 export interface CreateGameOptions {
+  size?: BoardSize
   vsBot?: boolean
   botDifficulty?: BotDifficulty
 }

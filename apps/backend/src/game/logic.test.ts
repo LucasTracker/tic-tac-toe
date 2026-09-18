@@ -1,26 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { applyMove, createEmptyBoard, evaluateBoard, InvalidMoveError, nextPlayer } from './logic'
-import type { Board } from '@tic-tac-toe/shared'
-
-const WINNING_LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
-]
+import {
+  applyMove,
+  buildWinningLines,
+  createEmptyBoard,
+  evaluateBoard,
+  InvalidMoveError,
+  nextPlayer,
+} from './logic'
+import type { Board, BoardSize } from '@tic-tac-toe/shared'
 
 describe('createEmptyBoard', () => {
-  it('returns 9 empty cells', () => {
+  it('returns 9 empty cells by default', () => {
     expect(createEmptyBoard()).toEqual(Array(9).fill(null))
+  })
+
+  it.each([3, 4, 5] as BoardSize[])('returns size*size empty cells for a %ix%i board', (size) => {
+    expect(createEmptyBoard(size)).toEqual(Array(size * size).fill(null))
   })
 })
 
 describe('evaluateBoard', () => {
-  it.each(WINNING_LINES)('detects a win for X on line [%i, %i, %i]', (a, b, c) => {
+  it.each(buildWinningLines(3))('detects a win for X on line [%i, %i, %i]', (a, b, c) => {
     const board: Board = createEmptyBoard()
     board[a] = 'X'
     board[b] = 'X'
     board[c] = 'X'
     expect(evaluateBoard(board)).toEqual({ status: 'won', winner: 'X', winningLine: [a, b, c] })
+  })
+
+  it.each([4, 5] as BoardSize[])('detects a full-line win on a %ix%i board', (size) => {
+    for (const line of buildWinningLines(size)) {
+      const board: Board = createEmptyBoard(size)
+      for (const index of line) board[index] = 'O'
+      expect(evaluateBoard(board)).toEqual({ status: 'won', winner: 'O', winningLine: line })
+    }
   })
 
   it('detects a draw when the board is full with no winner', () => {
@@ -68,5 +81,10 @@ describe('applyMove', () => {
   it('rejects an out-of-bounds position', () => {
     const board = createEmptyBoard()
     expect(() => applyMove(board, 9, 'X', 'X', 'in_progress')).toThrow(InvalidMoveError)
+  })
+
+  it('rejects an out-of-bounds position on a larger board', () => {
+    const board = createEmptyBoard(5)
+    expect(() => applyMove(board, 25, 'X', 'X', 'in_progress')).toThrow(InvalidMoveError)
   })
 })

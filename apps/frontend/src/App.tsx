@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { BotDifficulty, GameState, ScoreBoard } from '@tic-tac-toe/shared'
+import type { BoardSize, BotDifficulty, GameState, ScoreBoard } from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
 import { createGame, getScore, makeMove } from './api/client'
 
@@ -9,9 +9,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [vsBot, setVsBot] = useState(false)
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
+  const [size, setSize] = useState<BoardSize>(3)
 
   useEffect(() => {
-    createGame()
+    createGame({ size })
       .then(setGame)
       .catch((err: Error) => setError(err.message))
     refreshScore()
@@ -36,7 +37,7 @@ export default function App() {
 
   async function handleNewGame() {
     try {
-      const created = await createGame(vsBot ? { vsBot: true, botDifficulty: difficulty } : {})
+      const created = await createGame(vsBot ? { size, vsBot: true, botDifficulty: difficulty } : { size })
       setGame(created)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start game')
@@ -54,6 +55,14 @@ export default function App() {
           X wins: {score.xWins} | O wins: {score.oWins} | Draws: {score.draws}
         </p>
       )}
+      <label>
+        Board size:
+        <select value={size} onChange={(e) => setSize(Number(e.target.value) as BoardSize)}>
+          <option value={3}>3x3</option>
+          <option value={4}>4x4</option>
+          <option value={5}>5x5</option>
+        </select>
+      </label>
       <label>
         <input type="checkbox" checked={vsBot} onChange={(e) => setVsBot(e.target.checked)} />
         Play against bot
