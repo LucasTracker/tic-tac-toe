@@ -87,6 +87,15 @@ main {
   color: var(--muted);
 }
 
+.series-score,
+.series-winner {
+  font-weight: 600;
+}
+
+.series-winner {
+  color: var(--button-active-bg);
+}
+
 .board {
   display: grid;
   gap: 4px;

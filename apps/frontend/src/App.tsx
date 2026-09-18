@@ -5,6 +5,13 @@ import { createGame, getScore, makeMove } from './api/client'
 
 type Theme = 'light' | 'dark'
 type GameMode = 'local' | 'bot'
+type SeriesFormat = 1 | 3 | 5
+
+const seriesFormatInfo: Record<SeriesFormat, { label: string; target: number }> = {
+  1: { label: 'Partida única', target: 1 },
+  3: { label: 'Melhor de 3', target: 2 },
+  5: { label: 'Melhor de 5', target: 3 },
+}
 
 const difficultyInfo: Record<BotDifficulty, { label: string; description: string }> = {
   easy: {
@@ -34,6 +41,10 @@ export default function App() {
   const [mode, setMode] = useState<GameMode>('local')
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
   const [size, setSize] = useState<BoardSize>(3)
+  const [seriesFormat, setSeriesFormat] = useState<SeriesFormat>(1)
+  const [seriesScore, setSeriesScore] = useState({ X: 0, O: 0 })
+  const [seriesWinner, setSeriesWinner] = useState<'X' | 'O' | null>(null)
+  const [round, setRound] = useState(1)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -65,25 +76,54 @@ export default function App() {
   }
 
   async function handleCellClick(position: number) {
-    if (!game) return
+    if (!game || game.status !== 'in_progress' || seriesWinner) return
     try {
       const updated = await makeMove(game.id, { position, player: game.currentPlayer })
       setGame(updated)
       if (updated.status !== 'in_progress') {
         await refreshScore()
+        if (updated.winner) {
+          const nextScore = {
+            ...seriesScore,
+            [updated.winner]: seriesScore[updated.winner] + 1,
+          }
+          setSeriesScore(nextScore)
+          if (nextScore[updated.winner] >= seriesFormatInfo[seriesFormat].target) {
+            setSeriesWinner(updated.winner)
+          }
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Move failed')
     }
   }
 
+  function resetSeries(nextFormat: SeriesFormat = seriesFormat) {
+    setSeriesFormat(nextFormat)
+    setSeriesScore({ X: 0, O: 0 })
+    setSeriesWinner(null)
+    setRound(1)
+    void startNewGame(mode, size, difficulty)
+  }
+
+  function startNextRound() {
+    setRound((currentRound) => currentRound + 1)
+    void startNewGame()
+  }
+
   function handleModeChange(nextMode: GameMode) {
     setMode(nextMode)
+    setSeriesScore({ X: 0, O: 0 })
+    setSeriesWinner(null)
+    setRound(1)
     void startNewGame(nextMode, size, difficulty)
   }
 
   function handleSizeChange(nextSize: BoardSize) {
     setSize(nextSize)
+    setSeriesScore({ X: 0, O: 0 })
+    setSeriesWinner(null)
+    setRound(1)
     void startNewGame(mode, nextSize, difficulty)
   }
 
@@ -116,6 +156,21 @@ export default function App() {
       </div>
 
       <label>
+        Series format:
+        <select value={seriesFormat} onChange={(e) => resetSeries(Number(e.target.value) as SeriesFormat)}>
+          {Object.entries(seriesFormatInfo).map(([value, info]) => (
+            <option key={value} value={value}>
+              {info.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <p className="series-score" aria-live="polite">
+        Série · Rodada {round} · X {seriesScore.X} × {seriesScore.O} O
+      </p>
+
+      <label>
         Board size:
         <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value) as BoardSize)}>
           <option value={3}>3x3</option>
@@ -133,6 +188,9 @@ export default function App() {
             onChange={(e) => {
               const nextDifficulty = e.target.value as BotDifficulty
               setDifficulty(nextDifficulty)
+              setSeriesScore({ X: 0, O: 0 })
+              setSeriesWinner(null)
+              setRound(1)
               void startNewGame('bot', size, nextDifficulty)
             }}
           >
@@ -155,7 +213,18 @@ export default function App() {
       )}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
-      <button onClick={() => void startNewGame()}>New Game</button>
+      {seriesWinner ? (
+        <>
+          <p className="series-winner" aria-live="polite">
+            {seriesWinner} venceu a série!
+          </p>
+          <button onClick={() => resetSeries()}>Nova série</button>
+        </>
+      ) : game.status !== 'in_progress' ? (
+        <button onClick={startNextRound}>Próxima rodada</button>
+      ) : (
+        <button onClick={() => void startNewGame()}>Reiniciar rodada</button>
+      )}
     </main>
   )
 }
