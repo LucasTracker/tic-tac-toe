@@ -4,6 +4,7 @@ import { Board } from './components/Board'
 import { createGame, getScore, makeMove } from './api/client'
 
 type Theme = 'light' | 'dark'
+type GameMode = 'local' | 'bot'
 
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem('theme')
@@ -15,7 +16,7 @@ export default function App() {
   const [game, setGame] = useState<GameState | null>(null)
   const [score, setScore] = useState<ScoreBoard | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [vsBot, setVsBot] = useState(false)
+  const [mode, setMode] = useState<GameMode>('local')
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
   const [size, setSize] = useState<BoardSize>(3)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
@@ -26,16 +27,26 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    createGame({ size })
-      .then(setGame)
-      .catch((err: Error) => setError(err.message))
-    refreshScore()
+    void startNewGame('local', size, difficulty)
+    void refreshScore()
   }, [])
 
   function refreshScore() {
-    getScore()
+    return getScore()
       .then(setScore)
       .catch((err: Error) => setError(err.message))
+  }
+
+  async function startNewGame(nextMode: GameMode = mode, nextSize: BoardSize = size, nextDifficulty: BotDifficulty = difficulty) {
+    try {
+      const created = await createGame(
+        nextMode === 'bot' ? { size: nextSize, vsBot: true, botDifficulty: nextDifficulty } : { size: nextSize }
+      )
+      setGame(created)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start game')
+    }
   }
 
   async function handleCellClick(position: number) {
@@ -43,19 +54,22 @@ export default function App() {
     try {
       const updated = await makeMove(game.id, { position, player: game.currentPlayer })
       setGame(updated)
-      if (updated.status !== 'in_progress') refreshScore()
+      if (updated.status !== 'in_progress') {
+        await refreshScore()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Move failed')
     }
   }
 
-  async function handleNewGame() {
-    try {
-      const created = await createGame(vsBot ? { size, vsBot: true, botDifficulty: difficulty } : { size })
-      setGame(created)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start game')
-    }
+  function handleModeChange(nextMode: GameMode) {
+    setMode(nextMode)
+    void startNewGame(nextMode, size, difficulty)
+  }
+
+  function handleSizeChange(nextSize: BoardSize) {
+    setSize(nextSize)
+    void startNewGame(mode, nextSize, difficulty)
   }
 
   if (error) return <p>Error: {error}</p>
@@ -76,30 +90,45 @@ export default function App() {
           X wins: {score.xWins} | O wins: {score.oWins} | Draws: {score.draws}
         </p>
       )}
+
+      <div className="mode-selector" aria-label="Game mode selector">
+        <button type="button" className={mode === 'local' ? 'selected' : ''} onClick={() => handleModeChange('local')}>
+          Local multiplayer
+        </button>
+        <button type="button" className={mode === 'bot' ? 'selected' : ''} onClick={() => handleModeChange('bot')}>
+          vs Bot
+        </button>
+      </div>
+
       <label>
         Board size:
-        <select value={size} onChange={(e) => setSize(Number(e.target.value) as BoardSize)}>
+        <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value) as BoardSize)}>
           <option value={3}>3x3</option>
           <option value={4}>4x4</option>
           <option value={5}>5x5</option>
         </select>
       </label>
-      <label>
-        <input type="checkbox" checked={vsBot} onChange={(e) => setVsBot(e.target.checked)} />
-        Play against bot
-      </label>
-      {vsBot && (
-        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as BotDifficulty)}>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="unbeatable">Unbeatable</option>
-        </select>
+
+      {mode === 'bot' && (
+        <label>
+          Difficulty:
+          <select value={difficulty} onChange={(e) => {
+            const nextDifficulty = e.target.value as BotDifficulty
+            setDifficulty(nextDifficulty)
+            void startNewGame('bot', size, nextDifficulty)
+          }}>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="unbeatable">Unbeatable</option>
+          </select>
+        </label>
       )}
+
       <Board board={game.board} onCellClick={handleCellClick} winningLine={game.winningLine} />
       {game.status === 'in_progress' && <p>Turn: {game.currentPlayer}</p>}
       {game.status === 'won' && <p>Winner: {game.winner}</p>}
       {game.status === 'draw' && <p>Draw!</p>}
-      <button onClick={handleNewGame}>New Game</button>
+      <button onClick={() => void startNewGame()}>New Game</button>
     </main>
   )
 }

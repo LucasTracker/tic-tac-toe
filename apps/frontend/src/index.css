@@ -5,6 +5,8 @@
   --cell-border: #d4d4d8;
   --cell-winning-bg: #a7f3d0;
   --muted: #6b7280;
+  --button-bg: #f3f4f6;
+  --button-active-bg: #dbeafe;
 }
 
 :root[data-theme='dark'] {
@@ -14,6 +16,8 @@
   --cell-border: #3f3f46;
   --cell-winning-bg: #047857;
   --muted: #a1a1aa;
+  --button-bg: #27272a;
+  --button-active-bg: #1d4ed8;
 }
 
 body {
@@ -42,6 +46,29 @@ main {
   color: var(--fg);
   cursor: pointer;
   padding: 0.35rem 0.75rem;
+}
+
+.mode-selector {
+  display: inline-flex;
+  gap: 0.5rem;
+  background: var(--button-bg);
+  border: 1px solid var(--cell-border);
+  border-radius: 999px;
+  padding: 0.25rem;
+}
+
+.mode-selector button {
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0.5rem 0.8rem;
+}
+
+.mode-selector button.selected {
+  background: var(--button-active-bg);
+  font-weight: 600;
 }
 
 .scoreboard {
