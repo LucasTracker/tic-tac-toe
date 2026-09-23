@@ -7,6 +7,7 @@
   --muted: #6b7280;
   --button-bg: #f3f4f6;
   --button-active-bg: #dbeafe;
+  --sub-board-active: #3b82f6;
 }
 
 :root[data-theme='dark'] {
@@ -18,6 +19,7 @@
   --muted: #a1a1aa;
   --button-bg: #27272a;
   --button-active-bg: #1d4ed8;
+  --sub-board-active: #60a5fa;
 }
 
 body {
@@ -171,4 +173,57 @@ main {
 .cell-winning {
   background-color: var(--cell-winning-bg);
   font-weight: bold;
+}
+
+.variant-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ultimate-board {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+}
+
+.sub-board {
+  border: 2px solid var(--cell-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(3, 2.25rem);
+  grid-template-rows: repeat(3, 2.25rem);
+  padding: 3px;
+  position: relative;
+}
+
+.sub-board-active {
+  border-color: var(--sub-board-active);
+  box-shadow: 0 0 0 2px var(--sub-board-active);
+}
+
+.sub-board-winning {
+  background-color: var(--cell-winning-bg);
+}
+
+.ultimate-cell {
+  font-size: 1.1rem;
+  padding: 0;
+}
+
+.sub-board-decided .ultimate-cell {
+  opacity: 0.35;
+}
+
+.sub-board-owner {
+  align-items: center;
+  display: flex;
+  font-size: 4.5rem;
+  font-weight: bold;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
 }

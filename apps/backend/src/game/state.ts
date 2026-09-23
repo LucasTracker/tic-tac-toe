@@ -3,6 +3,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync, mkdirSync } from '
 import { dirname, resolve } from 'node:path'
 import type { CreateGameOptions, GameHistoryEntry, GameState, ScoreBoard } from '@tic-tac-toe/shared'
 import { createEmptyBoard } from './logic'
+import { createEmptyUltimateBoard, evaluateSubBoards } from './ultimate'
 
 const games = new Map<string, GameState>()
 
@@ -19,7 +20,8 @@ function loadResults(): void {
       history?: GameHistoryEntry[]
     }
     if (stored.score) score = { ...defaultScore, ...stored.score }
-    if (Array.isArray(stored.history)) history = stored.history
+    // Entries saved before the Ultimate variant existed have no `variant`.
+    if (Array.isArray(stored.history)) history = stored.history.map((entry) => ({ ...entry, variant: entry.variant ?? 'classic' }))
   } catch {
     // A corrupt history must not prevent the game server from starting.
     score = { ...defaultScore }
@@ -37,17 +39,22 @@ function persistResults(): void {
 loadResults()
 
 export function createGame(options: CreateGameOptions = {}): GameState {
-  const size = options.size ?? 3
+  const variant = options.variant ?? 'classic'
+  const size = variant === 'ultimate' ? 3 : options.size ?? 3
+  const board = variant === 'ultimate' ? createEmptyUltimateBoard() : createEmptyBoard(size)
   const game: GameState = {
     id: randomUUID(),
-    board: createEmptyBoard(size),
+    board,
     size,
+    variant,
     currentPlayer: 'X',
     status: 'in_progress',
     winner: null,
     winningLine: null,
     vsBot: options.vsBot ?? false,
     botDifficulty: options.vsBot ? options.botDifficulty ?? 'unbeatable' : null,
+    subBoardResults: variant === 'ultimate' ? evaluateSubBoards(board) : null,
+    activeSubBoard: null,
     timeLimitSeconds: options.timeLimitSeconds ?? 0,
     createdAt: Date.now(),
     turnStartedAt: Date.now(),
@@ -93,6 +100,7 @@ export function recordResult(game: GameState): void {
       timedOutPlayer: game.timedOutPlayer,
       board: [...game.board],
       size: game.size,
+      variant: game.variant,
       vsBot: game.vsBot,
       botDifficulty: game.botDifficulty,
       timeLimitSeconds: game.timeLimitSeconds,

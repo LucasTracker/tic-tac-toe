@@ -15,6 +15,15 @@ export type BotDifficulty = 'easy' | 'medium' | 'unbeatable'
 export type BoardSize = 3 | 4 | 5
 export type TimeLimitSeconds = 0 | 10 | 30 | 60
 
+/**
+ * `ultimate` plays on nine 3x3 sub-boards: the cell chosen inside a sub-board
+ * sends the opponent to the matching sub-board, and winning three sub-boards
+ * in a row wins the game.
+ */
+export type GameVariant = 'classic' | 'ultimate'
+
+/** Outcome of an Ultimate sub-board; null while it is still being played. */
+export type SubBoardResult = Player | 'draw' | null
 export interface Move {
   position: number
   player: Player
@@ -24,12 +33,21 @@ export interface GameState {
   id: string
   board: Board
   size: BoardSize
+  variant: GameVariant
   currentPlayer: Player
   status: GameStatus
   winner: Player | null
+  /** Cell indices, or sub-board indices in the `ultimate` variant. */
   winningLine: number[] | null
   vsBot: boolean
   botDifficulty: BotDifficulty | null
+  /**
+   * Ultimate only: result of each sub-board. In the `ultimate` variant the
+   * board holds 81 cells, where position = subBoard * 9 + cell.
+   */
+  subBoardResults: SubBoardResult[] | null
+  /** Ultimate only: sub-board the current player must play in; null means any. */
+  activeSubBoard: number | null
   /** Zero means that the game has no per-turn time limit. */
   timeLimitSeconds: TimeLimitSeconds
   /** Unix timestamp (milliseconds) at which the game began. */
@@ -44,6 +62,7 @@ export interface GameState {
 
 export interface CreateGameOptions {
   size?: BoardSize
+  variant?: GameVariant
   vsBot?: boolean
   botDifficulty?: BotDifficulty
   timeLimitSeconds?: TimeLimitSeconds
@@ -66,6 +85,7 @@ export interface GameHistoryEntry {
   timedOutPlayer: Player | null
   board: Board
   size: BoardSize
+  variant: GameVariant
   vsBot: boolean
   botDifficulty: BotDifficulty | null
   timeLimitSeconds: TimeLimitSeconds

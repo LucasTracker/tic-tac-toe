@@ -1,8 +1,41 @@
 import type { FastifyInstance } from 'fastify'
-import type { CreateGameOptions, Move } from '@tic-tac-toe/shared'
+import type { Board, CreateGameOptions, GameState, Move, Player } from '@tic-tac-toe/shared'
 import { createGame, getGame, getHistory, getScore, recordResult, saveGame, unrecordResult } from '../game/state'
 import { applyMove, CannotUndoError, evaluateBoard, InvalidMoveError, nextPlayer, undoLastTurn } from '../game/logic'
-import { chooseBotMove } from '../game/bot'
+import { chooseBotMove, chooseUltimateBotMove } from '../game/bot'
+import {
+  activeSubBoardFor,
+  assertUltimateMoveAllowed,
+  evaluateSubBoards,
+  evaluateUltimateBoard,
+  ULTIMATE_BOARD_CELLS,
+} from '../game/ultimate'
+
+type BoardEvaluation = Pick<GameState, 'status' | 'winner' | 'winningLine' | 'subBoardResults' | 'activeSubBoard'>
+
+function evaluateGameBoard(game: GameState, board: Board, moveHistory: Move[]): BoardEvaluation {
+  if (game.variant !== 'ultimate') {
+    return { ...evaluateBoard(board), subBoardResults: null, activeSubBoard: null }
+  }
+  const subBoardResults = evaluateSubBoards(board)
+  return {
+    ...evaluateUltimateBoard(board, subBoardResults),
+    subBoardResults,
+    activeSubBoard: activeSubBoardFor(moveHistory, subBoardResults),
+  }
+}
+
+function playMove(
+  game: GameState,
+  board: Board,
+  evaluation: BoardEvaluation,
+  move: Move,
+  currentPlayer: Player
+): Board {
+  const next = applyMove(board, move.position, move.player, currentPlayer, evaluation.status)
+  if (game.variant === 'ultimate') assertUltimateMoveAllowed(board, move.position, evaluation.activeSubBoard)
+  return next
+}
 
 function timeLimitExceeded(game: ReturnType<typeof getGame>): boolean {
   return Boolean(
@@ -35,6 +68,7 @@ export async function gamesRoutes(app: FastifyInstance) {
           type: ['object', 'null'],
           properties: {
             size: { type: 'integer', enum: [3, 4, 5] },
+            variant: { type: 'string', enum: ['classic', 'ultimate'] },
             vsBot: { type: 'boolean' },
             botDifficulty: { type: 'string', enum: ['easy', 'medium', 'unbeatable'] },
             timeLimitSeconds: { type: 'integer', enum: [0, 10, 30, 60] },
@@ -62,7 +96,7 @@ export async function gamesRoutes(app: FastifyInstance) {
           type: 'object',
           required: ['position', 'player'],
           properties: {
-            position: { type: 'integer', minimum: 0, maximum: 24 },
+            position: { type: 'integer', minimum: 0, maximum: ULTIMATE_BOARD_CELLS - 1 },
             player: { type: 'string', enum: ['X', 'O'] },
           },
         },
@@ -74,22 +108,22 @@ export async function gamesRoutes(app: FastifyInstance) {
       if (timeLimitExceeded(game)) return finishForTimeout(game)
 
       try {
-        let board = applyMove(
-          game.board,
-          req.body.position,
-          req.body.player,
-          game.currentPlayer,
-          game.status
-        )
-        let moveHistory = [...game.moveHistory, { position: req.body.position, player: req.body.player }]
-        let result = evaluateBoard(board)
+        const move = { position: req.body.position, player: req.body.player }
+        let board = playMove(game, game.board, game, move, game.currentPlayer)
+        let moveHistory = [...game.moveHistory, move]
+        let evaluation = evaluateGameBoard(game, board, moveHistory)
         let currentPlayer = nextPlayer(game.currentPlayer)
 
-        if (game.vsBot && result.status === 'in_progress' && currentPlayer !== req.body.player) {
-          const botPosition = chooseBotMove(board, currentPlayer, game.botDifficulty ?? 'unbeatable')
-          board = applyMove(board, botPosition, currentPlayer, currentPlayer, result.status)
-          moveHistory = [...moveHistory, { position: botPosition, player: currentPlayer }]
-          result = evaluateBoard(board)
+        if (game.vsBot && evaluation.status === 'in_progress' && currentPlayer !== req.body.player) {
+          const difficulty = game.botDifficulty ?? 'unbeatable'
+          const botPosition =
+            game.variant === 'ultimate'
+              ? chooseUltimateBotMove(board, evaluation.activeSubBoard, currentPlayer, difficulty)
+              : chooseBotMove(board, currentPlayer, difficulty)
+          const botMove = { position: botPosition, player: currentPlayer }
+          board = playMove(game, board, evaluation, botMove, currentPlayer)
+          moveHistory = [...moveHistory, botMove]
+          evaluation = evaluateGameBoard(game, board, moveHistory)
           currentPlayer = nextPlayer(currentPlayer)
         }
 
@@ -97,14 +131,12 @@ export async function gamesRoutes(app: FastifyInstance) {
           ...game,
           board,
           moveHistory,
-          status: result.status,
-          winner: result.winner,
-          winningLine: result.winningLine,
+          ...evaluation,
           currentPlayer,
           turnStartedAt: Date.now(),
         }
         saveGame(updated)
-        if (game.status === 'in_progress' && result.status !== 'in_progress') {
+        if (game.status === 'in_progress' && evaluation.status !== 'in_progress') {
           recordResult(updated)
         }
         return updated
@@ -133,13 +165,10 @@ export async function gamesRoutes(app: FastifyInstance) {
 
     try {
       const undone = undoLastTurn(game.board, game.moveHistory, game.vsBot)
-      const result = evaluateBoard(undone.board)
       const updated = {
         ...game,
         ...undone,
-        status: result.status,
-        winner: result.winner,
-        winningLine: result.winningLine,
+        ...evaluateGameBoard(game, undone.board, undone.moveHistory),
         timedOutPlayer: null,
         turnStartedAt: Date.now(),
       }

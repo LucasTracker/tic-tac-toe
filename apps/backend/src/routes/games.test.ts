@@ -180,3 +180,60 @@ describe('POST /games/:id/undo', () => {
     expect(historyRes.json()).not.toEqual(expect.arrayContaining([expect.objectContaining({ id })]))
   })
 })
+
+describe('Ultimate variant', () => {
+  async function createUltimateGame(payload: Record<string, unknown> = {}) {
+    const app = buildServer()
+    const createRes = await app.inject({ method: 'POST', url: '/games', payload: { variant: 'ultimate', ...payload } })
+    return { app, game: createRes.json() }
+  }
+
+  it('creates an 81-cell game where any sub-board is playable', async () => {
+    const { game } = await createUltimateGame()
+
+    expect(game).toMatchObject({ variant: 'ultimate', size: 3, activeSubBoard: null })
+    expect(game.board).toHaveLength(81)
+    expect(game.subBoardResults).toEqual(Array(9).fill(null))
+  })
+
+  it('sends the next player to the sub-board matching the cell played', async () => {
+    const { app, game } = await createUltimateGame()
+
+    // Cell 7 of sub-board 4.
+    const res = await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 43, player: 'X' } })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ currentPlayer: 'O', activeSubBoard: 7 })
+  })
+
+  it('rejects a move outside the active sub-board', async () => {
+    const { app, game } = await createUltimateGame()
+    await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 43, player: 'X' } })
+
+    const res = await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 0, player: 'O' } })
+
+    expect(res.statusCode).toBe(409)
+    expect(res.json().error).toBe('Must play in sub-board 7')
+  })
+
+  it('lets the bot answer inside the sub-board it was sent to', async () => {
+    const { app, game } = await createUltimateGame({ vsBot: true, botDifficulty: 'unbeatable' })
+
+    const res = await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 43, player: 'X' } })
+
+    const [, botMove] = res.json().moveHistory
+    expect(botMove.player).toBe('O')
+    expect(Math.floor(botMove.position / 9)).toBe(7)
+    expect(res.json().currentPlayer).toBe('X')
+  })
+
+  it('restores the active sub-board on undo', async () => {
+    const { app, game } = await createUltimateGame()
+    await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 43, player: 'X' } })
+    await app.inject({ method: 'POST', url: `/games/${game.id}/moves`, payload: { position: 65, player: 'O' } })
+
+    const res = await app.inject({ method: 'POST', url: `/games/${game.id}/undo` })
+
+    expect(res.json()).toMatchObject({ currentPlayer: 'O', activeSubBoard: 7 })
+  })
+})

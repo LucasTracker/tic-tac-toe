@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { BoardSize, BotDifficulty, GameHistoryEntry, GameState, ScoreBoard, TimeLimitSeconds } from '@tic-tac-toe/shared'
+import type {
+  BoardSize,
+  BotDifficulty,
+  GameHistoryEntry,
+  GameState,
+  GameVariant,
+  ScoreBoard,
+  TimeLimitSeconds,
+} from '@tic-tac-toe/shared'
 import { Board } from './components/Board'
+import { UltimateBoard } from './components/UltimateBoard'
 import { createGame, expireTurn, getHistory, getScore, makeMove, undoMove } from './api/client'
 
 type Theme = 'light' | 'dark'
@@ -27,6 +36,20 @@ const difficultyInfo: Record<BotDifficulty, { label: string; description: string
     description: 'O bot analisa as possibilidades e não perde no tabuleiro 3x3.',
   },
 }
+
+const variantInfo: Record<GameVariant, { label: string; description: string }> = {
+  classic: {
+    label: 'Clássico',
+    description: 'Complete uma linha no tabuleiro para vencer.',
+  },
+  ultimate: {
+    label: 'Ultimate',
+    description:
+      'Nove tabuleiros 3x3: a casa escolhida define em qual tabuleiro o adversário joga. Vença três tabuleiros em linha.',
+  },
+}
+
+const ultimateUnbeatableDescription = 'O bot faz uma busca profunda: forte, mas não perfeito no Ultimate.'
 
 const timeLimitInfo: Record<TimeLimitSeconds, string> = {
   0: 'Sem limite',
@@ -57,6 +80,7 @@ export default function App() {
   const [mode, setMode] = useState<GameMode>('local')
   const [difficulty, setDifficulty] = useState<BotDifficulty>('unbeatable')
   const [size, setSize] = useState<BoardSize>(3)
+  const [variant, setVariant] = useState<GameVariant>('classic')
   const [seriesFormat, setSeriesFormat] = useState<SeriesFormat>(1)
   const [seriesScore, setSeriesScore] = useState({ X: 0, O: 0 })
   const [seriesWinner, setSeriesWinner] = useState<'X' | 'O' | null>(null)
@@ -92,13 +116,14 @@ export default function App() {
     nextMode: GameMode = mode,
     nextSize: BoardSize = size,
     nextDifficulty: BotDifficulty = difficulty,
-    nextTimeLimit: TimeLimitSeconds = timeLimitSeconds
+    nextTimeLimit: TimeLimitSeconds = timeLimitSeconds,
+    nextVariant: GameVariant = variant
   ) {
     try {
       const created = await createGame(
         nextMode === 'bot'
-          ? { size: nextSize, vsBot: true, botDifficulty: nextDifficulty, timeLimitSeconds: nextTimeLimit }
-          : { size: nextSize, timeLimitSeconds: nextTimeLimit }
+          ? { size: nextSize, variant: nextVariant, vsBot: true, botDifficulty: nextDifficulty, timeLimitSeconds: nextTimeLimit }
+          : { size: nextSize, variant: nextVariant, timeLimitSeconds: nextTimeLimit }
       )
       setGame(created)
       setError(null)
@@ -224,22 +249,35 @@ export default function App() {
     void startNewGame(mode, nextSize, difficulty)
   }
 
+  function handleVariantChange(nextVariant: GameVariant) {
+    setVariant(nextVariant)
+    setSeriesScore({ X: 0, O: 0 })
+    setSeriesWinner(null)
+    setRound(1)
+    void startNewGame(mode, size, difficulty, timeLimitSeconds, nextVariant)
+  }
+
   function replayConfiguration(entry: GameHistoryEntry) {
     const nextMode: GameMode = entry.vsBot ? 'bot' : 'local'
     setMode(nextMode)
     setSize(entry.size)
+    setVariant(entry.variant)
     setDifficulty(entry.botDifficulty ?? 'unbeatable')
     setTimeLimitSeconds(entry.timeLimitSeconds)
     setSeriesScore({ X: 0, O: 0 })
     setSeriesWinner(null)
     setRound(1)
-    void startNewGame(nextMode, entry.size, entry.botDifficulty ?? 'unbeatable', entry.timeLimitSeconds)
+    void startNewGame(nextMode, entry.size, entry.botDifficulty ?? 'unbeatable', entry.timeLimitSeconds, entry.variant)
   }
 
   function formatHistoryResult(entry: GameHistoryEntry) {
     if (entry.endReason === 'draw') return 'Empate'
     if (entry.endReason === 'timeout') return `${entry.timedOutPlayer} ficou sem tempo · ${entry.winner} venceu`
     return `${entry.winner} venceu`
+  }
+
+  function describeActiveSubBoard(activeSubBoard: number | null) {
+    return activeSubBoard === null ? 'Jogue em qualquer tabuleiro livre' : `Jogue no tabuleiro ${activeSubBoard + 1}`
   }
 
   if (error) return <p>Error: {error}</p>
@@ -270,6 +308,22 @@ export default function App() {
         </button>
       </div>
 
+      <div className="variant-settings">
+        <div className="mode-selector" aria-label="Game variant selector">
+          {Object.entries(variantInfo).map(([value, info]) => (
+            <button
+              key={value}
+              type="button"
+              className={variant === value ? 'selected' : ''}
+              onClick={() => handleVariantChange(value as GameVariant)}
+            >
+              {info.label}
+            </button>
+          ))}
+        </div>
+        <p className="setting-description">{variantInfo[variant].description}</p>
+      </div>
+
       <label>
         Series format:
         <select value={seriesFormat} onChange={(e) => resetSeries(Number(e.target.value) as SeriesFormat)}>
@@ -285,14 +339,16 @@ export default function App() {
         Série · Rodada {round} · X {seriesScore.X} × {seriesScore.O} O
       </p>
 
-      <label>
-        Board size:
-        <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value) as BoardSize)}>
-          <option value={3}>3x3</option>
-          <option value={4}>4x4</option>
-          <option value={5}>5x5</option>
-        </select>
-      </label>
+      {variant === 'classic' && (
+        <label>
+          Board size:
+          <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value) as BoardSize)}>
+            <option value={3}>3x3</option>
+            <option value={4}>4x4</option>
+            <option value={5}>5x5</option>
+          </select>
+        </label>
+      )}
 
       <label>
         Tempo por jogada:
@@ -334,20 +390,36 @@ export default function App() {
               </option>
             ))}
           </select>
-          <p className="setting-description">{difficultyInfo[difficulty].description}</p>
+          <p className="setting-description">
+            {variant === 'ultimate' && difficulty === 'unbeatable'
+              ? ultimateUnbeatableDescription
+              : difficultyInfo[difficulty].description}
+          </p>
         </div>
       )}
 
-      <Board
-        board={game.board}
-        onCellClick={handleCellClick}
-        winningLine={game.winningLine}
-        disabled={game.status !== 'in_progress' || Boolean(seriesWinner)}
-      />
+      {game.variant === 'ultimate' && game.subBoardResults ? (
+        <UltimateBoard
+          board={game.board}
+          subBoardResults={game.subBoardResults}
+          activeSubBoard={game.activeSubBoard}
+          onCellClick={handleCellClick}
+          winningLine={game.winningLine}
+          disabled={game.status !== 'in_progress' || Boolean(seriesWinner)}
+        />
+      ) : (
+        <Board
+          board={game.board}
+          onCellClick={handleCellClick}
+          winningLine={game.winningLine}
+          disabled={game.status !== 'in_progress' || Boolean(seriesWinner)}
+        />
+      )}
       {game.status === 'in_progress' && (
         <p>
           Turn: {game.currentPlayer}
           {mode === 'bot' && ` · Bot: ${difficultyInfo[difficulty].label}`}
+          {game.variant === 'ultimate' && ` · ${describeActiveSubBoard(game.activeSubBoard)}`}
         </p>
       )}
       {game.status === 'in_progress' && game.timeLimitSeconds > 0 && (
@@ -393,7 +465,7 @@ export default function App() {
                   <strong>{formatHistoryResult(entry)}</strong>
                   <span>
                     {entry.vsBot ? `Contra bot${entry.botDifficulty ? ` · ${entry.botDifficulty}` : ''}` : 'Multijogador local'}
-                    {' · '}{entry.size}×{entry.size} · {entry.durationSeconds}s
+                    {' · '}{entry.variant === 'ultimate' ? 'Ultimate' : `${entry.size}×${entry.size}`} · {entry.durationSeconds}s
                     {' · '}{new Date(entry.completedAt).toLocaleString('pt-BR')}
                   </span>
                 </div>
